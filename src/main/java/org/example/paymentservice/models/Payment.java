@@ -4,15 +4,28 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.*;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
 @Entity
 @Table(name = "payments")
+@EqualsAndHashCode(callSuper = true)
 public class Payment extends BaseModel {
 
     // Associated Order ID from Order Service
     @Column(nullable = false)
     private String orderId;
+
+    @Column(nullable = false)
+    private String userId;
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
+    }
 
     // Payment provider (e.g., "stripe" or "razorpay")
     @Column(nullable = false)

@@ -26,6 +26,11 @@ public class WebhookEvent {
     @Column(nullable = false)
     private LocalDateTime processedAt;
 
+    public WebhookEvent(String eventId, LocalDateTime processedAt) {
+        this.eventId = eventId;
+        this.processedAt = processedAt;
+    }
+
 
     public Long getId() {
         return id;
