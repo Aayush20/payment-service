@@ -44,4 +44,10 @@ public class PaymentEvent {
     public void setExternalPaymentId(String externalPaymentId) {
         this.externalPaymentId = externalPaymentId;
     }
+    public PaymentEvent(String orderId, String status, String paymentProvider, String externalPaymentId) {
+        this.orderId = orderId;
+        this.status = status;
+        this.paymentProvider = paymentProvider;
+        this.externalPaymentId = externalPaymentId;
+    }
 }

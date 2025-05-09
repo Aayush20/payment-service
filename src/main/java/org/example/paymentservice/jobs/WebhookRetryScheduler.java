@@ -32,6 +32,9 @@ public class WebhookRetryScheduler {
     @Value("${razorpay.webhook.secret}")
     private String razorpaySecret;
 
+    @Value("${feature.retry.enabled:true}")
+    private boolean isRetryEnabled;
+
     public WebhookRetryScheduler(WebhookRetryTaskRepository retryRepo,
                                  PaymentStatusService paymentStatusService) {
         this.retryRepo = retryRepo;
@@ -40,6 +43,10 @@ public class WebhookRetryScheduler {
 
     @Scheduled(fixedDelay = 30000) // Runs every 30 seconds
     public void retryWebhookTasks() {
+        if (!isRetryEnabled) {
+            logger.info("Retry feature disabled via config.");
+            return;
+        }
         List<WebhookRetryTask> tasks = retryRepo.findTop10ByProcessedFalseOrderByCreatedAtAsc();
         for (WebhookRetryTask task : tasks) {
             try {

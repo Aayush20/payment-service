@@ -6,6 +6,7 @@ import org.example.paymentservice.dtos.PaymentRequestDto;
 import org.example.paymentservice.dtos.PaymentResponseDto;
 import org.example.paymentservice.models.Payment;
 import org.example.paymentservice.models.PaymentAuditLog;
+import org.example.paymentservice.models.PaymentStatus;
 import org.example.paymentservice.repositories.PaymentAuditLogRepository;
 import org.example.paymentservice.repositories.PaymentRepository;
 import org.example.paymentservice.utils.AuthUtils;
@@ -43,6 +44,7 @@ public class PaymentProcessingService {
         MDC.put("provider", provider);
         MDC.put("correlationId", UUID.randomUUID().toString());
 
+
         try {
             logger.info("Starting payment link creation for orderId: {}", orderId);
 
@@ -52,7 +54,8 @@ public class PaymentProcessingService {
             payment.setAmount(paymentRequest.getAmount());
             payment.setCurrency(paymentRequest.getCurrency());
             payment.setPaymentProvider(provider);
-            payment.setStatus("link_created");
+            payment.setStatus(PaymentStatus.LINK_CREATED);
+
             payment.setUserId(userId);
 
             paymentRepository.save(payment);
@@ -64,7 +67,8 @@ public class PaymentProcessingService {
 
             // Step 3: Update Payment record with external data
             payment.setExternalPaymentId(response.getPaymentId());
-            payment.setStatus(response.getStatus());
+            payment.setStatus(PaymentStatus.valueOf(response.getStatus().toUpperCase()));
+
             payment.setUpdatedAt(LocalDateTime.now());
             paymentRepository.save(payment);
 
@@ -73,7 +77,7 @@ public class PaymentProcessingService {
                     payment.getUserId(),
                     payment.getPaymentProvider(),
                     payment.getAmount(),
-                    "INITIATED",
+                    PaymentStatus.INITIATED.name(),
                     LocalDateTime.now(),
                     "Payment link created"
             );

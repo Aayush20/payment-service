@@ -40,8 +40,10 @@ public class Payment extends BaseModel {
     private String currency;
 
     // Status: "pending", "succeeded", "failed", etc.
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String status;
+    private PaymentStatus status;
+
 
     // External payment identifier returned by Stripe or Razorpay.
     // Increase the length to accommodate a longer URL.
@@ -80,13 +82,7 @@ public class Payment extends BaseModel {
         this.currency = currency;
     }
 
-    public String getStatus() {
-        return status;
-    }
 
-    public void setStatus(String status) {
-        this.status = status;
-    }
 
     public String getExternalPaymentId() {
         return externalPaymentId;
@@ -94,5 +90,13 @@ public class Payment extends BaseModel {
 
     public void setExternalPaymentId(String externalPaymentId) {
         this.externalPaymentId = externalPaymentId;
+    }
+
+    public PaymentStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(PaymentStatus status) {
+        this.status = status;
     }
 }

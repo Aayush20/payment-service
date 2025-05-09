@@ -3,6 +3,7 @@ package org.example.paymentservice.controllers;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.Event;
 import com.stripe.net.Webhook;
+import io.github.bucket4j.Bucket;
 import org.example.paymentservice.models.Payment;
 import org.example.paymentservice.models.WebhookEvent;
 import org.example.paymentservice.models.WebhookRetryTask;
@@ -10,6 +11,7 @@ import org.example.paymentservice.repositories.PaymentRepository;
 import org.example.paymentservice.repositories.WebhookEventRepository;
 import org.example.paymentservice.repositories.WebhookRetryTaskRepository;
 import org.example.paymentservice.services.PaymentStatusService;
+import org.example.paymentservice.services.RateLimiterService;
 import org.example.paymentservice.utils.RazorpayWebhookUtils;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -40,10 +42,22 @@ public class PaymentWebhookController {
     @Autowired private WebhookRetryTaskRepository webhookRetryTaskRepository;
     @Autowired private PaymentRepository paymentRepository;
     @Autowired private PaymentStatusService paymentStatusService;
+    @Autowired
+    private RateLimiterService rateLimiterService;
+
+
+
 
     @PostMapping("/stripe")
     public ResponseEntity<String> stripeWebhook(@RequestBody String payload,
                                                 @RequestHeader("Stripe-Signature") String sigHeader) {
+        Bucket bucket = rateLimiterService.resolveBucket("stripe-webhook");
+        if (!bucket.tryConsume(1)) {
+            logger.warn("Stripe webhook rate limit exceeded");
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body("Rate limit exceeded");
+        }
+
         Event event;
         try {
             event = Webhook.constructEvent(payload, sigHeader, stripeWebhookSecret);
@@ -58,9 +72,12 @@ public class PaymentWebhookController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Missing event id");
         }
 
-        if (webhookEventRepository.existsByEventId(eventId)) {
-            return ResponseEntity.ok("Stripe event already processed");
+        if (webhookEventRepository.findByEventId(eventId).isPresent()) {
+            logger.warn("Duplicate Stripe webhook event received. Skipping. eventId={}", eventId);
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Duplicate Stripe event");
         }
+
 
         try {
             if ("checkout.session.completed".equals(event.getType())) {
@@ -87,6 +104,14 @@ public class PaymentWebhookController {
     @PostMapping("/razorpay")
     public ResponseEntity<String> razorpayWebhook(@RequestBody String payload,
                                                   @RequestHeader("X-Razorpay-Signature") String sigHeader) {
+        Bucket bucket = rateLimiterService.resolveBucket("razorpay-webhook");
+        if (!bucket.tryConsume(1)) {
+            logger.warn("Razorpay webhook rate limit exceeded");
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body("Rate limit exceeded");
+        }
+
+
         logger.info("Received Razorpay webhook payload: {}", payload);
 
         boolean isValid = RazorpayWebhookUtils.verifyWebhookSignature(payload, sigHeader, razorpayWebhookSecret);
@@ -98,9 +123,12 @@ public class PaymentWebhookController {
             JSONObject jsonPayload = new JSONObject(payload);
             String eventId = jsonPayload.optString("id");
 
-            if (webhookEventRepository.existsByEventId(eventId)) {
-                return ResponseEntity.ok("Razorpay event already processed");
+            if (webhookEventRepository.findByEventId(eventId).isPresent()) {
+                logger.warn("Duplicate Razorpay webhook event received. Skipping. eventId={}", eventId);
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body("Duplicate Razorpay event");
             }
+
 
             paymentStatusService.handleRazorpayEvent(jsonPayload);
 

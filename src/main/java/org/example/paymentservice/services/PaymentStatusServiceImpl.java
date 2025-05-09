@@ -7,8 +7,10 @@ import org.example.paymentservice.configs.kafka.PaymentEventPublisher;
 import org.example.paymentservice.events.PaymentEvent;
 import org.example.paymentservice.models.Payment;
 import org.example.paymentservice.models.PaymentAuditLog;
+import org.example.paymentservice.models.PaymentStatus;
 import org.example.paymentservice.repositories.PaymentAuditLogRepository;
 import org.example.paymentservice.repositories.PaymentRepository;
+import org.example.paymentservice.utils.AuthUtils;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class PaymentStatusServiceImpl implements PaymentStatusService {
@@ -69,10 +72,14 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
         MDC.put("orderId", orderId);
         MDC.put("provider", "stripe");
         MDC.put("externalPaymentId", externalPaymentId);
+        MDC.put("traceId", UUID.randomUUID().toString());
+        MDC.put("userId", AuthUtils.getCurrentUserId());
+
 
         try {
             if (payment != null) {
-                payment.setStatus("succeeded");
+                payment.setStatus(PaymentStatus.SUCCEEDED);
+
                 payment.setExternalPaymentId(externalPaymentId);
                 paymentRepository.save(payment);
                 PaymentAuditLog auditLog = new PaymentAuditLog(
@@ -80,7 +87,7 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
                         payment.getUserId(),
                         payment.getPaymentProvider(),
                         payment.getAmount(),
-                        "SUCCESS",
+                        PaymentStatus.SUCCEEDED.name(),
                         LocalDateTime.now(),
                         "Payment succeeded with externalPaymentId: " + externalPaymentId
                 );
@@ -138,10 +145,13 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
         MDC.put("orderId", orderId);
         MDC.put("provider", "razorpay");
         MDC.put("externalPaymentId", externalPaymentId);
+        MDC.put("traceId", UUID.randomUUID().toString());
+        MDC.put("userId", AuthUtils.getCurrentUserId());
 
         try {
             if (payment != null) {
-                payment.setStatus("succeeded");
+                payment.setStatus(PaymentStatus.SUCCEEDED);
+
                 payment.setExternalPaymentId(externalPaymentId);
                 paymentRepository.save(payment);
 
@@ -150,7 +160,7 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
                         payment.getUserId(),
                         payment.getPaymentProvider(),
                         payment.getAmount(),
-                        "SUCCESS",
+                        PaymentStatus.SUCCEEDED.name(),
                         LocalDateTime.now(),
                         "Payment succeeded with externalPaymentId: " + externalPaymentId
                 );

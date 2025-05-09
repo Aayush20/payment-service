@@ -2,6 +2,7 @@ package org.example.paymentservice.configs;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -17,6 +18,10 @@ public class PaymentServiceSecurityConfig {
                 .csrf(csrf -> csrf.disable())  // Disable CSRF for stateless REST APIs.
                 .authorizeHttpRequests(auth -> auth.anyRequest().authenticated()
                         .requestMatchers("/webhook/**").permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/payments/stripe/webhook").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/payments/razorpay/webhook").permitAll()
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
         return http.build();

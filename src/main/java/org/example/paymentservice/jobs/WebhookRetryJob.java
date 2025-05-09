@@ -29,6 +29,11 @@ public class WebhookRetryJob {
     private final String stripeSecret = "your_stripe_secret";
     private final String razorpaySecret = "your_razorpay_secret";
 
+    public WebhookRetryJob(WebhookRetryTaskRepository retryRepo, PaymentStatusService statusService) {
+        this.retryRepo = retryRepo;
+        this.statusService = statusService;
+    }
+
     @Scheduled(fixedDelay = 60000) // Retry every 60 seconds
     public void retryFailedWebhooks() {
         List<WebhookRetryTask> tasks = retryRepo.findByProcessedFalse();
