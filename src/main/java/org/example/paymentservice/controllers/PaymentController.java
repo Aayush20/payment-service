@@ -28,42 +28,80 @@ import java.util.Optional;
 @RequestMapping("/api/payment")
 public class PaymentController {
 
-    @Autowired
-    private PaymentProcessingService paymentProcessingService;
+    @Autowired private PaymentProcessingService paymentProcessingService;
+    @Autowired private PaymentRepository paymentRepository;
 
-    @Autowired
-    private PaymentRepository paymentRepository;
-
-    @Operation(summary = "Create payment link",
+    @Operation(
+            summary = "Create payment link",
             requestBody = @RequestBody(
                     required = true,
                     content = @Content(
                             mediaType = "application/json",
                             schema = @Schema(implementation = PaymentRequestDto.class),
                             examples = @ExampleObject(
-                                    value = "{\"amount\": 5000, \"currency\": \"inr\", \"paymentMethodId\": \"pm_123\", \"orderId\": \"order_abc\", \"gateway\": \"stripe\"}"
+                                    name = "Sample Payment Request",
+                                    value = """
+                    {
+                      "amount": 5000,
+                      "currency": "INR",
+                      "paymentMethodId": "pm_123",
+                      "orderId": "order_abc",
+                      "gateway": "stripe"
+                    }
+                    """
                             )
                     )
             ),
             responses = {
                     @ApiResponse(responseCode = "200", description = "Payment link created",
-                            content = @Content(schema = @Schema(implementation = PaymentResponseDto.class))),
-                    @ApiResponse(responseCode = "400", description = "Invalid input")
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    schema = @Schema(implementation = PaymentResponseDto.class),
+                                    examples = @ExampleObject(
+                                            name = "Payment Response",
+                                            value = """
+                        {
+                          "paymentId": "pay_abc123",
+                          "status": "succeeded",
+                          "message": "Payment completed successfully"
+                        }
+                        """
+                                    )
+                            )
+                    ),
+                    @ApiResponse(responseCode = "400", description = "Invalid request data",
+                            content = @Content(mediaType = "application/json",
+                                    examples = @ExampleObject(
+                                            name = "Validation Error",
+                                            value = """
+                        {
+                          "timestamp": "2025-05-14T14:30:00",
+                          "status": 400,
+                          "error": "Validation Failed",
+                          "message": "Amount should be at least 1",
+                          "path": "/api/payment/link"
+                        }
+                        """
+                                    )
+                            )
+                    )
             }
     )
     @PostMapping("/link")
     public ResponseEntity<PaymentResponseDto> createPaymentLink(
             @Valid @RequestBody PaymentRequestDto paymentRequest) {
-
         MDC.put("orderId", paymentRequest.getOrderId());
         MDC.put("paymentProvider", paymentRequest.getGateway());
         PaymentResponseDto response = paymentProcessingService.createPaymentLink(paymentRequest);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-    @Operation(summary = "Razorpay success redirect", responses = {
-            @ApiResponse(responseCode = "200", description = "Success message")
-    })
+    @Operation(summary = "Razorpay success redirect",
+            description = "Returns static text after Razorpay success redirect",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Success message")
+            }
+    )
     @GetMapping("/razorpay-success")
     public ResponseEntity<String> razorpaySuccess() {
         return ResponseEntity.ok("Payment was successful (Razorpay). Thank you!");
@@ -71,7 +109,7 @@ public class PaymentController {
 
     @Operation(
             summary = "Get Payment by ID",
-            description = "Fetches the complete Payment object using its unique database ID.",
+            description = "Fetch the payment record by internal ID",
             responses = {
                     @ApiResponse(responseCode = "200", description = "Payment found",
                             content = @Content(
@@ -106,15 +144,14 @@ public class PaymentController {
 
     @Operation(
             summary = "Get Payment Status by Order ID",
-            description = "Fetches the payment status (succeeded/pending/failed) using orderId",
+            description = "Returns just the payment status string by order ID",
             responses = {
-                    @ApiResponse(responseCode = "200", description = "Payment status retrieved",
-                            content = @Content(
-                                    mediaType = "application/json",
+                    @ApiResponse(responseCode = "200", description = "Status returned",
+                            content = @Content(mediaType = "application/json",
                                     examples = @ExampleObject(value = "\"succeeded\"")
                             )
                     ),
-                    @ApiResponse(responseCode = "404", description = "Payment not found")
+                    @ApiResponse(responseCode = "404", description = "Order ID not found")
             }
     )
     @GetMapping("/status/order/{orderId}")

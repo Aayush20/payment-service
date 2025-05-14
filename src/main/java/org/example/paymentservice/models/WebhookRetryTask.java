@@ -86,4 +86,28 @@ public class WebhookRetryTask {
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
     }
+
+    public static WebhookRetryTask buildStripeRetry(String payload, String sigHeader) {
+        WebhookRetryTask task = new WebhookRetryTask();
+        task.setProvider("stripe");
+        task.setPayload(payload);
+        task.setSignature(sigHeader);
+        task.setAttemptCount(0);
+        task.setProcessed(false);
+        task.setCreatedAt(LocalDateTime.now());
+        task.setUpdatedAt(LocalDateTime.now());
+        return task;
+    }
+
+    public static WebhookRetryTask buildRazorpayRetry(String payload, String sigHeader) {
+        WebhookRetryTask task = new WebhookRetryTask();
+        task.setProvider("razorpay");
+        task.setPayload(payload);
+        task.setSignature(sigHeader);
+        task.setAttemptCount(0);
+        task.setProcessed(false);
+        task.setCreatedAt(LocalDateTime.now());
+        task.setUpdatedAt(LocalDateTime.now());
+        return task;
+    }
 }

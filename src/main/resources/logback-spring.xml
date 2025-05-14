@@ -1,24 +1,23 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <springProperty name="APP_NAME" source="spring.application.name"/>
 
-    <include resource="org/springframework/boot/logging/logback/base.xml"/>
-
-    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
             <providers>
                 <timestamp>
-                    <fieldName>timestamp</fieldName>
-                    <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSZ</pattern>
+                    <timeZone>UTC</timeZone>
                 </timestamp>
+                <loggerName/>
                 <pattern>
                     <pattern>
                         {
                         "level": "%level",
-                        "logger": "%logger",
                         "thread": "%thread",
-                        "message": "%message",
-                        "traceId": "%X{traceId}",
-                        "userId": "%X{userId}"
+                        "traceId": "%X{traceId:-}",
+                        "userId": "%X{userId:-}",
+                        "requestId": "%X{requestId:-}",
+                        "message": "%message"
                         }
                     </pattern>
                 </pattern>
@@ -27,7 +26,6 @@
     </appender>
 
     <root level="INFO">
-        <appender-ref ref="JSON_CONSOLE"/>
+        <appender-ref ref="CONSOLE"/>
     </root>
-
 </configuration>

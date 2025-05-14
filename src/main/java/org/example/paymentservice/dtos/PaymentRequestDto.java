@@ -1,5 +1,6 @@
 package org.example.paymentservice.dtos;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -8,24 +9,24 @@ import lombok.Data;
 @Data
 public class PaymentRequestDto {
 
-    // Payment amount in smallest currency unit.
+    @Schema(description = "Payment amount in smallest currency unit", example = "5000")
     @NotNull(message = "Amount is required")
     @Min(value = 1, message = "Amount should be at least 1")
     private Long amount;
 
-    // Currency (e.g., "usd" or "inr").
+    @Schema(description = "Currency code (e.g., INR, USD)", example = "INR")
     @NotBlank(message = "Currency is required")
     private String currency;
 
-    // Payment method token or details (such as Stripe's payment method ID)
+    @Schema(description = "Payment method ID (e.g., Stripe PM token)", example = "pm_1234567890")
     @NotBlank(message = "Payment method is required")
     private String paymentMethodId;
 
-    // Associated Order ID for which the payment is made.
+    @Schema(description = "Order ID for which the payment is made", example = "order_abc123")
     @NotBlank(message = "Order ID is required")
     private String orderId;
 
-    // Desired payment gateway (for example, "stripe" or "razorpay")
+    @Schema(description = "Payment provider name", example = "stripe")
     @NotBlank(message = "Payment gateway is required")
     private String gateway;
 

@@ -1,5 +1,6 @@
 package org.example.paymentservice.dtos;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -7,8 +8,13 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class PaymentResponseDto {
+    @Schema(description = "Internal payment ID", example = "pay_abc123")
     private String paymentId;
+
+    @Schema(description = "Status of the payment", example = "succeeded")
     private String status;
+
+    @Schema(description = "Status message or description", example = "Payment completed successfully")
     private String message;
 
     public PaymentResponseDto(String paymentId, String status, String message) {
