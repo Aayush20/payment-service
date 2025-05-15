@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.example.paymentservice.dtos.PaymentRequestDto;
@@ -18,10 +19,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
 
+@SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Payment API", description = "Handles payment creation and status checks")
 @PreAuthorize("isAuthenticated()")
 @RestController
@@ -159,4 +163,29 @@ public class PaymentController {
         Payment payment = paymentRepository.findByOrderId(orderId);
         return payment != null ? ResponseEntity.ok(payment.getStatus()) : ResponseEntity.notFound().build();
     }
+
+    @Operation(
+            summary = "Rollback payment for order (internal use only)",
+            description = "Called by order-service to rollback payment on order cancel or failure",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Rollback acknowledged"),
+                    @ApiResponse(responseCode = "403", description = "Access denied")
+            }
+    )
+    @PostMapping("/internal/rollback")
+    @PreAuthorize("@jwtClaimUtils.isSystemCall(#jwt, 'order-service') or @jwtClaimUtils.hasScope(#jwt, 'internal')")
+    public ResponseEntity<String> rollbackPayment(@RequestParam String orderId,
+                                                  @AuthenticationPrincipal Jwt jwt) {
+        // TODO: Optional logic to mark payment as ROLLED_BACK, if applicable
+        return ResponseEntity.ok("Payment rollback acknowledged for order: " + orderId);
+    }
+
+
+    @Operation(summary = "Get current JWT claims (debug only)", description = "Returns the authenticated user's JWT claims")
+    @GetMapping("/me")
+    @PreAuthorize("@jwtClaimUtils.hasRole(#jwt, 'ADMIN') or @jwtClaimUtils.hasScope(#jwt, 'internal')")
+    public ResponseEntity<?> getJwtClaims(@AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(jwt.getClaims());
+    }
+
 }

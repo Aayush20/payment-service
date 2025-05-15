@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.example.paymentservice.models.WebhookEvent;
 import org.example.paymentservice.models.WebhookRetryTask;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 
+@SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Webhook API", description = "Handles incoming Stripe and Razorpay webhooks")
 @PreAuthorize("isAuthenticated()")
 @RestController

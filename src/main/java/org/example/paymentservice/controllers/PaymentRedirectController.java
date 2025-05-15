@@ -1,10 +1,12 @@
 package org.example.paymentservice.controllers;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+@SecurityRequirement(name = "bearerAuth")
 @PreAuthorize("isAuthenticated()")
 @Controller
 public class PaymentRedirectController {
