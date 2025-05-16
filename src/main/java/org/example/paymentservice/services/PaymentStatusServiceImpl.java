@@ -10,7 +10,6 @@ import org.example.paymentservice.models.PaymentAuditLog;
 import org.example.paymentservice.models.PaymentStatus;
 import org.example.paymentservice.repositories.PaymentAuditLogRepository;
 import org.example.paymentservice.repositories.PaymentRepository;
-import org.example.paymentservice.utils.AuthUtils;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,7 +72,7 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
         MDC.put("provider", "stripe");
         MDC.put("externalPaymentId", externalPaymentId);
         MDC.put("traceId", UUID.randomUUID().toString());
-        MDC.put("userId", AuthUtils.getCurrentUserId());
+        MDC.put("userId", payment.getUserId());
 
 
         try {
@@ -146,7 +145,7 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
         MDC.put("provider", "razorpay");
         MDC.put("externalPaymentId", externalPaymentId);
         MDC.put("traceId", UUID.randomUUID().toString());
-        MDC.put("userId", AuthUtils.getCurrentUserId());
+        MDC.put("userId", payment.getUserId());
 
         try {
             if (payment != null) {

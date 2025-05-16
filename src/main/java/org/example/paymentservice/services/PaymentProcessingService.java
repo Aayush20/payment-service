@@ -4,12 +4,12 @@ import org.example.paymentservice.adapters.PaymentGateway;
 import org.example.paymentservice.adapters.PaymentGatewayFactory;
 import org.example.paymentservice.dtos.PaymentRequestDto;
 import org.example.paymentservice.dtos.PaymentResponseDto;
+import org.example.paymentservice.dtos.TokenIntrospectionResponseDTO;
 import org.example.paymentservice.models.Payment;
 import org.example.paymentservice.models.PaymentAuditLog;
 import org.example.paymentservice.models.PaymentStatus;
 import org.example.paymentservice.repositories.PaymentAuditLogRepository;
 import org.example.paymentservice.repositories.PaymentRepository;
-import org.example.paymentservice.utils.AuthUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -33,8 +33,14 @@ public class PaymentProcessingService {
     @Autowired
     private PaymentAuditLogRepository auditLogRepository;
 
-    public PaymentResponseDto createPaymentLink(PaymentRequestDto paymentRequest) {
-        String userId = AuthUtils.getCurrentUserId();
+    @Autowired
+    private TokenService tokenService;
+
+    public PaymentResponseDto createPaymentLink(PaymentRequestDto paymentRequest,
+                                                String tokenHeader) {
+//        String userId = AuthUtils.getCurrentUserId();
+        TokenIntrospectionResponseDTO token = tokenService.introspect(tokenHeader);
+        String userId = token.getSub();
         String orderId = paymentRequest.getOrderId();
         String provider = paymentRequest.getGateway();
 

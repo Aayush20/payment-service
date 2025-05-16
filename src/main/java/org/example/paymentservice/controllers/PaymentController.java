@@ -11,9 +11,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.example.paymentservice.dtos.PaymentRequestDto;
 import org.example.paymentservice.dtos.PaymentResponseDto;
+import org.example.paymentservice.dtos.TokenIntrospectionResponseDTO;
 import org.example.paymentservice.models.Payment;
 import org.example.paymentservice.repositories.PaymentRepository;
 import org.example.paymentservice.services.PaymentProcessingService;
+import org.example.paymentservice.services.TokenService;
+import org.example.paymentservice.utils.TokenClaimUtils;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -34,6 +37,7 @@ public class PaymentController {
 
     @Autowired private PaymentProcessingService paymentProcessingService;
     @Autowired private PaymentRepository paymentRepository;
+    @Autowired private TokenService tokenService;
 
     @Operation(
             summary = "Create payment link",
@@ -93,10 +97,11 @@ public class PaymentController {
     )
     @PostMapping("/link")
     public ResponseEntity<PaymentResponseDto> createPaymentLink(
-            @Valid @RequestBody PaymentRequestDto paymentRequest) {
+            @Valid @RequestBody PaymentRequestDto paymentRequest,
+            @RequestHeader("Authorization") String authHeader) {
         MDC.put("orderId", paymentRequest.getOrderId());
         MDC.put("paymentProvider", paymentRequest.getGateway());
-        PaymentResponseDto response = paymentProcessingService.createPaymentLink(paymentRequest);
+        PaymentResponseDto response = paymentProcessingService.createPaymentLink(paymentRequest, authHeader);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
@@ -173,9 +178,12 @@ public class PaymentController {
             }
     )
     @PostMapping("/internal/rollback")
-    @PreAuthorize("@jwtClaimUtils.isSystemCall(#jwt, 'order-service') or @jwtClaimUtils.hasScope(#jwt, 'internal')")
     public ResponseEntity<String> rollbackPayment(@RequestParam String orderId,
-                                                  @AuthenticationPrincipal Jwt jwt) {
+                                                  @RequestHeader("Authorization") String tokenHeader) {
+        TokenIntrospectionResponseDTO token = tokenService.introspect(tokenHeader);
+        if (!TokenClaimUtils.hasScope(token, "internal") && !TokenClaimUtils.isSystemCall(token, "order-service")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied");
+        }
         // TODO: Optional logic to mark payment as ROLLED_BACK, if applicable
         return ResponseEntity.ok("Payment rollback acknowledged for order: " + orderId);
     }
@@ -183,9 +191,10 @@ public class PaymentController {
 
     @Operation(summary = "Get current JWT claims (debug only)", description = "Returns the authenticated user's JWT claims")
     @GetMapping("/me")
-    @PreAuthorize("@jwtClaimUtils.hasRole(#jwt, 'ADMIN') or @jwtClaimUtils.hasScope(#jwt, 'internal')")
-    public ResponseEntity<?> getJwtClaims(@AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(jwt.getClaims());
+    public ResponseEntity<?> getJwtClaims(@RequestHeader("Authorization") String tokenHeader) {
+        TokenIntrospectionResponseDTO token = tokenService.introspect(tokenHeader);
+        return ResponseEntity.ok(token);
     }
+
 
 }
