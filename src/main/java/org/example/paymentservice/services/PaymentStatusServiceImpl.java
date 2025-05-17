@@ -17,6 +17,7 @@ import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,6 +35,10 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
 
     @Autowired
     private PaymentAuditLogRepository paymentAuditLogRepository;
+
+    @Autowired
+    private SendGridEmailService emailService;
+
 
     @Override
     public void handleStripeCheckoutSessionCompleted(Event event) {
@@ -67,6 +72,11 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
         String externalPaymentId = session.getId();
         Payment payment = paymentRepository.findByOrderId(orderId);
 
+        if (payment == null) {
+            logger.warn("No Payment record found for orderId: {}", orderId);
+            return;
+        }
+
         // Set MDC context for logging
         MDC.put("orderId", orderId);
         MDC.put("provider", "stripe");
@@ -95,6 +105,20 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
 
                 logger.info("Payment updated successfully for Stripe order.");
 
+                // Send confirmation email after payment success
+                try {
+                    emailService.sendEmail(
+                            payment.getUserId() + "@example.com", // Replace with actual email resolution logic if available
+                            "✅ Payment Successful - Order #" + payment.getOrderId(),
+                            "Your payment of " + payment.getAmount() + " " + payment.getCurrency().toUpperCase() +
+                                    " via Stripe was successful for Order ID: " + payment.getOrderId() +
+                                    ".\n\nThank you for shopping with us!"
+                    );
+                } catch (IOException ex) {
+                    logger.error("❌ Failed to send payment success email for order {}: {}", orderId, ex.getMessage());
+                }
+
+
                 paymentEventPublisher.publishPaymentSuccess(new PaymentEvent(
                         orderId,
                         "succeeded",
@@ -103,6 +127,16 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
                 ));
             } else {
                 logger.warn("No Payment record found for orderId: {}", orderId);
+                // ⚠️ Fallback email if payment not found
+                try {
+                    emailService.sendEmail(
+                            orderId + "@fallbackmail.com", // ⛔ Replace with real fallback if available
+                            "❌ Payment Failed - Unknown Order",
+                            "We received a payment intent for Order ID: " + orderId + ", but no matching order was found. Please contact support if this was unexpected."
+                    );
+                } catch (IOException e) {
+                    logger.warn("Failed to send fallback email for unknown payment: {}", e.getMessage());
+                }
             }
         } catch (Exception e) {
             logger.error("Error updating payment for orderId {}: {}", orderId, e.getMessage());
@@ -166,7 +200,23 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
                 paymentAuditLogRepository.save(auditLog);
 
 
+
                 logger.info("Payment updated successfully for Razorpay order.");
+
+                // Send confirmation email after Razorpay success
+                try {
+                    emailService.sendEmail(
+                            payment.getUserId() + "@example.com", // Replace with real email resolution
+                            "✅ Payment Successful - Order #" + payment.getOrderId(),
+                            "Your payment of " + payment.getAmount() + " " + payment.getCurrency().toUpperCase() +
+                                    " via Razorpay was successful for Order ID: " + payment.getOrderId() +
+                                    ".\n\nThank you for shopping with us!"
+                    );
+                } catch (IOException ex) {
+                    logger.error("❌ Failed to send Razorpay payment success email for order {}: {}", orderId, ex.getMessage());
+                }
+
+
 
                 paymentEventPublisher.publishPaymentSuccess(new PaymentEvent(
                         orderId,

@@ -50,6 +50,18 @@ public class Payment extends BaseModel {
     @Column(length = 512)
     private String externalPaymentId;
 
+    @Column(nullable = false)
+    private String userEmail;
+
+    public String getUserEmail() {
+        return userEmail;
+    }
+
+    public void setUserEmail(String userEmail) {
+        this.userEmail = userEmail;
+    }
+
+
     public String getOrderId() {
         return orderId;
     }
