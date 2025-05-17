@@ -24,79 +24,57 @@ public class PaymentProcessingService {
 
     private static final Logger logger = LoggerFactory.getLogger(PaymentProcessingService.class);
 
-    @Autowired
-    private PaymentRepository paymentRepository;
+    @Autowired private PaymentRepository paymentRepository;
+    @Autowired private PaymentGatewayFactory paymentGatewayFactory;
+    @Autowired private PaymentAuditLogRepository auditLogRepository;
+    @Autowired private TokenService tokenService;
 
-    @Autowired
-    private PaymentGatewayFactory paymentGatewayFactory;
-
-    @Autowired
-    private PaymentAuditLogRepository auditLogRepository;
-
-    @Autowired
-    private TokenService tokenService;
-
-    public PaymentResponseDto createPaymentLink(PaymentRequestDto paymentRequest,
-                                                String tokenHeader) {
-//        String userId = AuthUtils.getCurrentUserId();
+    public PaymentResponseDto createPaymentLink(PaymentRequestDto paymentRequest, String tokenHeader) {
         TokenIntrospectionResponseDTO token = tokenService.introspect(tokenHeader);
         String userId = token.getSub();
+        String userEmail = token.getEmail(); // ✅ New
         String orderId = paymentRequest.getOrderId();
         String provider = paymentRequest.getGateway();
 
-        // Set MDC values for structured logging
         MDC.put("orderId", orderId);
         MDC.put("userId", userId);
         MDC.put("provider", provider);
         MDC.put("correlationId", UUID.randomUUID().toString());
 
-
         try {
             logger.info("Starting payment link creation for orderId: {}", orderId);
 
-            // Step 1: Create and persist a Payment record
             Payment payment = new Payment();
             payment.setOrderId(orderId);
+            payment.setUserId(userId);
+            payment.setUserEmail(userEmail); // ✅ New
             payment.setAmount(paymentRequest.getAmount());
             payment.setCurrency(paymentRequest.getCurrency());
             payment.setPaymentProvider(provider);
             payment.setStatus(PaymentStatus.LINK_CREATED);
 
-            payment.setUserId(userId);
-
             paymentRepository.save(payment);
-            logger.info("Initial payment record saved for orderId: {}", orderId);
 
-            // Step 2: Select appropriate PaymentGateway implementation
-            PaymentGateway paymentGateway = paymentGatewayFactory.getPaymentGateway(paymentRequest);
-            PaymentResponseDto response = paymentGateway.createPaymentLink(paymentRequest);
+            PaymentGateway gateway = paymentGatewayFactory.getPaymentGateway(paymentRequest);
+            PaymentResponseDto response = gateway.createPaymentLink(paymentRequest);
 
-            // Step 3: Update Payment record with external data
             payment.setExternalPaymentId(response.getPaymentId());
             payment.setStatus(PaymentStatus.valueOf(response.getStatus().toUpperCase()));
-
             payment.setUpdatedAt(LocalDateTime.now());
             paymentRepository.save(payment);
 
-            PaymentAuditLog auditLog = new PaymentAuditLog(
-                    payment.getOrderId(),
-                    payment.getUserId(),
-                    payment.getPaymentProvider(),
-                    payment.getAmount(),
-                    PaymentStatus.INITIATED.name(),
-                    LocalDateTime.now(),
-                    "Payment link created"
+            PaymentAuditLog log = new PaymentAuditLog(
+                    payment.getOrderId(), userId, provider, payment.getAmount(),
+                    PaymentStatus.INITIATED.name(), LocalDateTime.now(), "Payment link created"
             );
-            auditLogRepository.save(auditLog);
+            auditLogRepository.save(log);
 
-
-            logger.info("Payment record updated after gateway response for orderId: {}", orderId);
             return response;
         } catch (Exception ex) {
             logger.error("Failed to create payment link for orderId: {}. Error: {}", orderId, ex.getMessage(), ex);
             throw ex;
         } finally {
-            MDC.clear(); // Clear context after operation
+            MDC.clear();
         }
     }
 }

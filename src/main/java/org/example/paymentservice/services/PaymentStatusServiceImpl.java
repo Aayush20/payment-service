@@ -3,8 +3,9 @@ package org.example.paymentservice.services;
 import com.stripe.model.Event;
 import com.stripe.model.StripeObject;
 import com.stripe.model.checkout.Session;
-import org.example.paymentservice.configs.kafka.PaymentEventPublisher;
-import org.example.paymentservice.events.PaymentEvent;
+import org.example.paymentservice.kafka.PaymentEventPublisher;
+import org.example.paymentservice.kafka.PaymentEvent;
+import org.example.paymentservice.kafka.PaymentFailedEvent;
 import org.example.paymentservice.models.Payment;
 import org.example.paymentservice.models.PaymentAuditLog;
 import org.example.paymentservice.models.PaymentStatus;
@@ -18,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
@@ -74,7 +76,15 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
 
         if (payment == null) {
             logger.warn("No Payment record found for orderId: {}", orderId);
-            return;
+
+            PaymentFailedEvent failedEvent = new PaymentFailedEvent(
+                    orderId,
+                    "unknown", // or extract from metadata if available
+                    "stripe",
+                    "No matching payment found for orderId",
+                    Instant.now()
+            );
+            paymentEventPublisher.publishPaymentFailedEvent(failedEvent);
         }
 
         // Set MDC context for logging
@@ -108,7 +118,7 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
                 // Send confirmation email after payment success
                 try {
                     emailService.sendEmail(
-                            payment.getUserId() + "@example.com", // Replace with actual email resolution logic if available
+                            payment.getUserEmail(), // ✅ Real user email stored in DB
                             "✅ Payment Successful - Order #" + payment.getOrderId(),
                             "Your payment of " + payment.getAmount() + " " + payment.getCurrency().toUpperCase() +
                                     " via Stripe was successful for Order ID: " + payment.getOrderId() +
@@ -140,6 +150,15 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
             }
         } catch (Exception e) {
             logger.error("Error updating payment for orderId {}: {}", orderId, e.getMessage());
+
+            PaymentFailedEvent failedEvent = new PaymentFailedEvent(
+                    orderId,
+                    payment != null ? payment.getUserId() : "unknown",
+                    "stripe",
+                    "Exception during Stripe processing: " + e.getMessage(),
+                    Instant.now()
+            );
+            paymentEventPublisher.publishPaymentFailedEvent(failedEvent);
         } finally {
             MDC.clear();
         }
@@ -174,6 +193,20 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
 
         Payment payment = paymentRepository.findByOrderId(orderId);
 
+        if (payment == null) {
+            logger.warn("No Payment record found for Razorpay orderId: {}", orderId);
+
+            PaymentFailedEvent failedEvent = new PaymentFailedEvent(
+                    orderId,
+                    "unknown",
+                    "razorpay",
+                    "No matching payment found for Razorpay orderId",
+                    Instant.now()
+            );
+            paymentEventPublisher.publishPaymentFailedEvent(failedEvent);
+        }
+
+
         // Set MDC context for logging
         MDC.put("orderId", orderId);
         MDC.put("provider", "razorpay");
@@ -206,7 +239,7 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
                 // Send confirmation email after Razorpay success
                 try {
                     emailService.sendEmail(
-                            payment.getUserId() + "@example.com", // Replace with real email resolution
+                            payment.getUserEmail(), // ✅ Real user email stored in DB
                             "✅ Payment Successful - Order #" + payment.getOrderId(),
                             "Your payment of " + payment.getAmount() + " " + payment.getCurrency().toUpperCase() +
                                     " via Razorpay was successful for Order ID: " + payment.getOrderId() +
@@ -229,7 +262,17 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
             }
         } catch (Exception e) {
             logger.error("Error updating Razorpay payment for orderId {}: {}", orderId, e.getMessage());
-        } finally {
+
+            PaymentFailedEvent failedEvent = new PaymentFailedEvent(
+                    orderId,
+                    payment != null ? payment.getUserId() : "unknown",
+                    "razorpay",
+                    "Exception during Razorpay processing: " + e.getMessage(),
+                    Instant.now()
+            );
+            paymentEventPublisher.publishPaymentFailedEvent(failedEvent);
+        }
+        finally {
             MDC.clear();
         }
     }

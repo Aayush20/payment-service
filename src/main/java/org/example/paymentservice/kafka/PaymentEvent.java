@@ -1,6 +1,5 @@
-package org.example.paymentservice.events;
+package org.example.paymentservice.kafka;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 

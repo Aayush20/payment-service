@@ -1,6 +1,5 @@
-package org.example.paymentservice.configs.kafka;
+package org.example.paymentservice.kafka;
 
-import org.example.paymentservice.events.PaymentEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,7 +11,7 @@ public class PaymentEventPublisher {
 
     private static final Logger logger = LoggerFactory.getLogger(PaymentEventPublisher.class);
 
-    private final KafkaTemplate<String, PaymentEvent> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Value("${topic.payment.success}")
     private String successTopic;
@@ -20,18 +19,17 @@ public class PaymentEventPublisher {
     @Value("${topic.payment.failed}")
     private String failedTopic;
 
-    public PaymentEventPublisher(KafkaTemplate<String, PaymentEvent> kafkaTemplate) {
+    public PaymentEventPublisher(KafkaTemplate<String, Object> kafkaTemplate) {
         this.kafkaTemplate = kafkaTemplate;
     }
 
     public void publishPaymentSuccess(PaymentEvent event) {
-        logger.info("Publishing to topic {}: {}", successTopic, event);
+        logger.info("✅ Publishing to topic {}: {}", successTopic, event);
         kafkaTemplate.send(successTopic, event.getOrderId(), event);
     }
 
-    public void publishPaymentFailure(PaymentEvent event) {
-        logger.info("Publishing to topic {}: {}", failedTopic, event);
+    public void publishPaymentFailedEvent(PaymentFailedEvent event) {
+        logger.info("❌ Publishing to topic {}: {}", failedTopic, event);
         kafkaTemplate.send(failedTopic, event.getOrderId(), event);
     }
 }
-

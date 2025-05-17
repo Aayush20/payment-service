@@ -1,8 +1,7 @@
-package org.example.paymentservice.configs.kafka;
+package org.example.paymentservice.kafka;
 
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.example.paymentservice.events.PaymentEvent;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
@@ -25,9 +24,19 @@ public class KafkaProducerConfig {
         return new DefaultKafkaProducerFactory<>(configProps);
     }
 
+//    @Bean
+//    public KafkaTemplate<String, PaymentEvent> paymentKafkaTemplate() {
+//        return new KafkaTemplate<>(paymentProducerFactory());
+//    }
+
     @Bean
-    public KafkaTemplate<String, PaymentEvent> paymentKafkaTemplate() {
-        return new KafkaTemplate<>(paymentProducerFactory());
+    public KafkaTemplate<String, Object> paymentKafkaTemplate() {
+        return new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(Map.of(
+                ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092",
+                ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class,
+                ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class
+        )));
     }
+
 }
 

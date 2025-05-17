@@ -2,15 +2,14 @@ package org.example.paymentservice.services;
 
 import com.stripe.model.Event;
 import com.stripe.model.checkout.Session;
-import org.example.paymentservice.configs.kafka.PaymentEventPublisher;
-import org.example.paymentservice.events.PaymentEvent;
+import org.example.paymentservice.kafka.PaymentEventPublisher;
+import org.example.paymentservice.kafka.PaymentEvent;
 import org.example.paymentservice.models.Payment;
 import org.example.paymentservice.repositories.PaymentRepository;
 import org.json.JSONObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
-import org.slf4j.Logger;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.HashMap;

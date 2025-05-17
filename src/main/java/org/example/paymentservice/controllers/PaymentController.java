@@ -13,6 +13,7 @@ import org.example.paymentservice.dtos.PaymentRequestDto;
 import org.example.paymentservice.dtos.PaymentResponseDto;
 import org.example.paymentservice.dtos.TokenIntrospectionResponseDTO;
 import org.example.paymentservice.models.Payment;
+import org.example.paymentservice.models.PaymentStatus;
 import org.example.paymentservice.repositories.PaymentRepository;
 import org.example.paymentservice.services.PaymentProcessingService;
 import org.example.paymentservice.services.TokenService;
@@ -26,6 +27,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @SecurityRequirement(name = "bearerAuth")
@@ -185,6 +187,12 @@ public class PaymentController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied");
         }
         // TODO: Optional logic to mark payment as ROLLED_BACK, if applicable
+        Payment payment = paymentRepository.findByOrderId(orderId);
+        if (payment != null && !payment.getStatus().equals(PaymentStatus.SUCCEEDED)) {
+            payment.setStatus(PaymentStatus.FAILED);
+            payment.setUpdatedAt(LocalDateTime.now());
+            paymentRepository.save(payment);
+        }
         return ResponseEntity.ok("Payment rollback acknowledged for order: " + orderId);
     }
 
