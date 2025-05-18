@@ -15,6 +15,7 @@ import org.example.paymentservice.dtos.TokenIntrospectionResponseDTO;
 import org.example.paymentservice.models.Payment;
 import org.example.paymentservice.models.PaymentStatus;
 import org.example.paymentservice.repositories.PaymentRepository;
+import org.example.paymentservice.security.HasScope;
 import org.example.paymentservice.services.PaymentProcessingService;
 import org.example.paymentservice.services.PaymentStatusService;
 import org.example.paymentservice.services.TokenService;
@@ -101,6 +102,7 @@ public class PaymentController {
             }
     )
     @PostMapping("/link")
+    @HasScope("payment:create")
     public ResponseEntity<PaymentResponseDto> createPaymentLink(
             @Valid @RequestBody PaymentRequestDto paymentRequest,
             @RequestHeader("Authorization") String authHeader) {
@@ -151,6 +153,7 @@ public class PaymentController {
             }
     )
     @GetMapping("/{paymentId}")
+    @HasScope("payment:read")
     public ResponseEntity<?> getPaymentById(@PathVariable Long paymentId) {
         Optional<Payment> payment = paymentRepository.findById(paymentId);
         return payment.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
@@ -169,6 +172,7 @@ public class PaymentController {
             }
     )
     @GetMapping("/status/order/{orderId}")
+    @HasScope("payment:read")
     public ResponseEntity<?> getPaymentStatusByOrderId(@PathVariable String orderId) {
         Payment payment = paymentRepository.findByOrderId(orderId);
         return payment != null ? ResponseEntity.ok(payment.getStatus()) : ResponseEntity.notFound().build();
@@ -202,6 +206,7 @@ public class PaymentController {
 
     @Operation(summary = "Get authenticated user's payment history")
     @GetMapping("/me/payments")
+    @HasScope("payment:read")
     public ResponseEntity<List<PaymentResponseDto>> getMyPayments(@RequestHeader("Authorization") String tokenHeader) {
         TokenIntrospectionResponseDTO token = tokenService.introspect(tokenHeader);
         List<PaymentResponseDto> payments = paymentService.getPaymentsByUserId(token.getSub());

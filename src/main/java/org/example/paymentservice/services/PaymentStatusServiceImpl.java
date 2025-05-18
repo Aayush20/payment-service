@@ -307,9 +307,13 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
                 .map(this::mapToResponseDto)
                 .toList();
 
+        // Set cache with TTL
         redisTemplate.opsForValue().set(cacheKey, response, userPaymentCacheTtl, TimeUnit.SECONDS);
+        logger.info("📦 Payments cached in Redis with TTL {}s", userPaymentCacheTtl);
+
         return response;
     }
+
 
     private PaymentResponseDto mapToResponseDto(Payment p) {
         PaymentResponseDto dto = new PaymentResponseDto();

@@ -40,3 +40,11 @@ jobs:
 
       - name: Build Docker Image
         run: docker build -t your-dockerhub-username/payment-service .
+
+
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Push Docker Image
+        run: docker push your-dockerhub-username/payment-service
+
