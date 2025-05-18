@@ -1,7 +1,8 @@
 package org.example.paymentservice.models;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "payments")
@@ -45,8 +46,13 @@ public class Payment extends BaseModel {
     public String getPaymentProvider() { return paymentProvider; }
     public void setPaymentProvider(String paymentProvider) { this.paymentProvider = paymentProvider; }
 
-    public Long getAmount() { return amount; }
-    public void setAmount(Long amount) { this.amount = amount; }
+    public Long getAmount() {
+        return amount;
+    }
+
+    public void setAmount(Long amount) {
+        this.amount = amount;
+    }
 
     public String getCurrency() { return currency; }
     public void setCurrency(String currency) { this.currency = currency; }

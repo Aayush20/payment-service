@@ -23,6 +23,7 @@ import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 @SecurityRequirement(name = "bearerAuth")
@@ -44,6 +45,8 @@ public class PaymentWebhookController {
     @Autowired private WebhookRetryTaskRepository webhookRetryTaskRepository;
     @Autowired private PaymentStatusService paymentStatusService;
     @Autowired private RateLimiterService rateLimiterService;
+    @Autowired private RedisWebhookLockService webhookLockService;
+
 
     @Operation(
             summary = "Stripe Webhook",
@@ -66,6 +69,8 @@ public class PaymentWebhookController {
     @PostMapping("/stripe")
     public ResponseEntity<String> stripeWebhook(@RequestBody String payload,
                                                 @RequestHeader("Stripe-Signature") String sigHeader) {
+
+
         Bucket bucket = rateLimiterService.resolveBucket("stripe-webhook");
         if (!bucket.tryConsume(1)) {
             logger.warn("Stripe webhook rate limit exceeded");
@@ -83,6 +88,11 @@ public class PaymentWebhookController {
         String eventId = event.getId();
         if (eventId == null || eventId.trim().isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Missing event id");
+        }
+
+        String redisKey = "webhook:stripe:" + eventId;
+        if (!webhookLockService.tryLock(redisKey, Duration.ofHours(6))) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Duplicate webhook event (locked)");
         }
 
         if (webhookEventRepository.findByEventId(eventId).isPresent()) {
@@ -136,15 +146,23 @@ public class PaymentWebhookController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid Razorpay webhook signature");
         }
 
+        JSONObject jsonPayload = new JSONObject(payload);
+        String eventId = jsonPayload.optString("id");
+        if (eventId == null || eventId.trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Missing event id");
+        }
+
+        String redisKey = "webhook:razorpay:" + eventId;
+        if (!webhookLockService.tryLock(redisKey, Duration.ofHours(6))) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Duplicate webhook event (locked)");
+        }
+
+        if (webhookEventRepository.findByEventId(eventId).isPresent()) {
+            logger.warn("Duplicate Razorpay webhook event received. Skipping. eventId={}", eventId);
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Duplicate Razorpay event");
+        }
+
         try {
-            JSONObject jsonPayload = new JSONObject(payload);
-            String eventId = jsonPayload.optString("id");
-
-            if (webhookEventRepository.findByEventId(eventId).isPresent()) {
-                logger.warn("Duplicate Razorpay webhook event received. Skipping. eventId={}", eventId);
-                return ResponseEntity.status(HttpStatus.CONFLICT).body("Duplicate Razorpay event");
-            }
-
             paymentStatusService.handleRazorpayEvent(jsonPayload);
             webhookEventRepository.save(new WebhookEvent(eventId, LocalDateTime.now()));
             return ResponseEntity.ok("Razorpay webhook processed successfully");
@@ -154,4 +172,6 @@ public class PaymentWebhookController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Razorpay webhook enqueued for retry");
         }
     }
+
 }
+

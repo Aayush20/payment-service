@@ -16,6 +16,7 @@ import org.example.paymentservice.models.Payment;
 import org.example.paymentservice.models.PaymentStatus;
 import org.example.paymentservice.repositories.PaymentRepository;
 import org.example.paymentservice.services.PaymentProcessingService;
+import org.example.paymentservice.services.PaymentStatusService;
 import org.example.paymentservice.services.TokenService;
 import org.example.paymentservice.utils.TokenClaimUtils;
 import org.slf4j.MDC;
@@ -28,6 +29,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @SecurityRequirement(name = "bearerAuth")
@@ -40,6 +42,7 @@ public class PaymentController {
     @Autowired private PaymentProcessingService paymentProcessingService;
     @Autowired private PaymentRepository paymentRepository;
     @Autowired private TokenService tokenService;
+    @Autowired private PaymentStatusService paymentService;
 
     @Operation(
             summary = "Create payment link",
@@ -197,12 +200,14 @@ public class PaymentController {
     }
 
 
-    @Operation(summary = "Get current JWT claims (debug only)", description = "Returns the authenticated user's JWT claims")
-    @GetMapping("/me")
-    public ResponseEntity<?> getJwtClaims(@RequestHeader("Authorization") String tokenHeader) {
+    @Operation(summary = "Get authenticated user's payment history")
+    @GetMapping("/me/payments")
+    public ResponseEntity<List<PaymentResponseDto>> getMyPayments(@RequestHeader("Authorization") String tokenHeader) {
         TokenIntrospectionResponseDTO token = tokenService.introspect(tokenHeader);
-        return ResponseEntity.ok(token);
+        List<PaymentResponseDto> payments = paymentService.getPaymentsByUserId(token.getSub());
+        return ResponseEntity.ok(payments);
     }
+
 
 
 }

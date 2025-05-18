@@ -3,6 +3,7 @@ package org.example.paymentservice.services;
 import com.stripe.model.Event;
 import com.stripe.model.StripeObject;
 import com.stripe.model.checkout.Session;
+import org.example.paymentservice.dtos.PaymentResponseDto;
 import org.example.paymentservice.kafka.PaymentEventPublisher;
 import org.example.paymentservice.kafka.PaymentEvent;
 import org.example.paymentservice.kafka.PaymentFailedEvent;
@@ -16,18 +17,31 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class PaymentStatusServiceImpl implements PaymentStatusService {
 
     private static final Logger logger = LoggerFactory.getLogger(PaymentStatusServiceImpl.class);
+
+    private static final String USER_PAYMENT_CACHE_PREFIX = "user:payments:";
+
+    @Value("${cache.ttl.userPayments:60}") // TTL in seconds
+    private long userPaymentCacheTtl;
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     @Autowired
     private PaymentRepository paymentRepository;
@@ -275,5 +289,38 @@ public class PaymentStatusServiceImpl implements PaymentStatusService {
         finally {
             MDC.clear();
         }
+    }
+
+    @Override
+    public List<PaymentResponseDto> getPaymentsByUserId(String userId) {
+        String cacheKey = USER_PAYMENT_CACHE_PREFIX + userId;
+
+        List<PaymentResponseDto> cached = (List<PaymentResponseDto>) redisTemplate.opsForValue().get(cacheKey);
+        if (cached != null) {
+            logger.info("✅ Redis cache hit for user payments");
+            return cached;
+        }
+
+        logger.info("🔍 Redis cache miss. Fetching payments from DB...");
+        List<Payment> payments = paymentRepository.findByUserId(userId);
+        List<PaymentResponseDto> response = payments.stream()
+                .map(this::mapToResponseDto)
+                .toList();
+
+        redisTemplate.opsForValue().set(cacheKey, response, userPaymentCacheTtl, TimeUnit.SECONDS);
+        return response;
+    }
+
+    private PaymentResponseDto mapToResponseDto(Payment p) {
+        PaymentResponseDto dto = new PaymentResponseDto();
+        dto.setOrderId(p.getOrderId());
+        dto.setPaymentId(p.getExternalPaymentId());
+        dto.setStatus(p.getStatus().name());
+        dto.setAmount(p.getAmount() != null ? BigDecimal.valueOf(p.getAmount()) : null);
+
+        dto.setCurrency(p.getCurrency());
+        dto.setProvider(p.getPaymentProvider());
+        dto.setCreatedAt(p.getCreatedAt());
+        return dto;
     }
 }
